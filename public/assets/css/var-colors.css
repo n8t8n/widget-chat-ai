@@ -1,0 +1,17 @@
+:root {
+  --pc: #1e1f29;
+  --sc: #333545;
+  --ac: #4a5568;
+  --bl: #2a2c37;
+  --tc: #ffffff;
+  --ib: #333545;
+  --ts: 0.3s;
+  --br: 16px;
+  --ai: linear-gradient(to left bottom, #0047ff, #2841ff, #3c39ff, #4c2fff, #5a23ff, #601cfd, #6512fb, #6a02f9, #6904f5, #6805f0, #6707ec, #6608e8);
+  --sh1: 0 4px 10px rgba(0, 0, 0, 0.2);
+  --sh2: 0 6px 15px rgba(0, 0, 0, 0.3);
+  --sh3: 0 10px 25px rgba(0, 0, 0, 0.1);
+  --sh4: 0 0 0 0 transparent;
+  --sh5: 1px 1px 3px rgb(0 0 0 / 63%);
+  --sh6: 0 0 3px 2px rgb(0 0 0 / 40%);
+}
