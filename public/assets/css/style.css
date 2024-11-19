@@ -48,7 +48,7 @@
 
 #ai-chat-widget {
   position: absolute;
-  bottom: 90px;
+  bottom: 85px;
   right: 15px;
   width: 300px;
   height: 400px;
@@ -90,7 +90,7 @@
   gap: 10px;
 }
 
-#ai-chat-mode-badge {
+.switch-model-assistant {
   position: absolute;
   top: 14px;
   right: 50px;
@@ -101,17 +101,41 @@
   font-size: 10px;
   cursor: none;
   transition: box-shadow 0.3s ease;
-  box-shadow: 1px 1px 12px 0px #5c3dff;
+  box-shadow: 1px 1px 12px 0px #5c3dff
 }
 
-#ai-chat-mode-badge:hover {
-  box-shadow: 1px 1px 5px 0px #5935b2;
-}
-
-.file {
-  background: red !important;
+.switch-model-file {
+  background: red;
   cursor: none;
-  box-shadow: 1px 1px 12px 0px #ff3d43 !important;
+  box-shadow: 1px 1px 12px 0px #ff3d43;
+}
+
+.top-info {
+  background: lightslategray;
+  color: var(--tc);
+  font-size: 10px;
+  padding: 5px;
+  text-align: center;
+  animation: fadeIn .5s ease;
+  line-height: 15px;
+}
+
+.top-info:not(.active) {
+  display: none;
+}
+
+#clear-chat-button {
+  background: #1e1f2929;
+  border: none;
+  font-size: 10px;
+  color: inherit;
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+
+#clear-chat-button:active {
+  background: #1e1f29b0;
+
 }
 
 #ai-chat-close {
@@ -139,7 +163,7 @@
 
 .ai-chat-message {
   max-width: 85%;
-  padding: 12px 15px;
+  padding: 8px;
   border-radius: var(--br);
   line-height: 1.4;
   position: relative;
@@ -179,6 +203,8 @@ code {
   background: var(--ac);
   color: var(--tc);
   margin-left: auto;
+
+
 }
 
 .ai-chat-message.ai {
@@ -186,6 +212,8 @@ code {
   background: var(--ai);
   color: var(--tc);
   border-radius: var(--br);
+
+
 }
 
 #ai-chat-input-area {
@@ -266,10 +294,10 @@ code {
   border-radius: var(--br);
   box-shadow: var(--sh5); */
   z-index: 5002;
-  /* padding: 10px; */
+  padding: 15px 0px;
   flex-direction: column;
   text-align: start;
-  gap: 10px;
+  gap: 8px;
 }
 
 #ai-chat-attachment-menu.open {
@@ -409,6 +437,7 @@ code {
 
   #ai-chat-messages {
     height: calc(100% - 180px);
+    margin-bottom: 65px;
     /* Adjust height to fit the screen */
   }
 

@@ -1,9 +1,35 @@
+// This code leverages the Google Generative AI's model.startChat and model.generateContent methods to facilitate interactions with the Gemini API. It was initially developed for a test scenario incorporating vision and audio capabilities
+
 const CHAT_SERVER_URL = "http://localhost:5700/chat";
 const USER_ID = "anonymous_" + Math.random().toString(36).substring(7);
 
+const loadScripts = async () => {
+  const scripts = ["assets/js/marked.js", "assets/js/purify.js"];
+
+  const loadScript = (src) => {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load script ${src}`));
+      document.head.appendChild(script);
+    });
+  };
+
+  try {
+    await Promise.all(scripts.map(loadScript));
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const link = document.createElement("link");
+link.rel = "stylesheet";
+link.href = "assets/css/style.css";
+document.head.appendChild(link);
+
 class ChatWidget {
   constructor() {
-    // this.createStyles();
     this.createWidget();
     this.addEventListeners();
     this.currentFile = null;
@@ -11,6 +37,9 @@ class ChatWidget {
     this.recording = null;
     this.mediaRecorder = null;
     this.audioChunks = [];
+    this.mediaStream = null;
+
+    loadScripts();
   }
 
   createWidget() {
@@ -23,8 +52,9 @@ class ChatWidget {
             <span>AI Assistant</span>
           </div>
           <button id="ai-chat-close" aria-label="Close Chat">✕</button>
+          <div class="switch-model-assistant" id="ai-chat-mode-badge">Chat with Assistant</div>
         </div>
-        <div id="ai-chat-mode-badge">Chat with Asisstant</div>
+        <div id="top-info-data" class="top-info">To start a new conversation or delete attachment file click on <button id="clear-chat-button">Clear</button> button or send the command "/clear"</div>
         <div id="ai-chat-messages"></div>
         <div id="ai-chat-file-preview"></div> <!-- New file preview section -->
         <div id="ai-chat-input-area">
@@ -37,7 +67,7 @@ class ChatWidget {
           </button>
           <div id="ai-chat-attachment-menu">
             <button id="ai-chat-file-option"><svg style=" vertical-align: bottom; height: 18px;"width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-labelledby="fileIconTitle" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" color="#000"><path d="M13 3v6h6"/><path d="m13 3 6 6v12H5V3z"/></svg> File</button>
-            <button id="ai-chat-record-option"><svg  style=" vertical-align: bottom; height: 18px;"width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-labelledby="microphoneIconTitle" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" color="#fff"><path d="M17 12a5 5 0 0 1-10 0m5 5v4"/><rect width="4" height="10" x="10" y="4" rx="2"/></svg>Recording</button>
+            <button id="ai-chat-record-option"> <svg style=" vertical-align: bottom; height: 18px;" color="#fff" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" stroke="#fff" aria-labelledby="microphoneIconTitle" xmlns="http://www.w3.org/2000/svg" viewBox="4.6080000000000005 2.736 14.783999999999999 19.488" style="max-height: 500px" width="14.783999999999999" height="19.488"><path d="M17 12a5 5 0 0 1-10 0m5 5v4"/><rect rx="2" y="4" x="10" height="10" width="4"/></svg> Audio</button>
           </div>
           <input type="file" id="ai-chat-file-input" accept="image/*,application/pdf,audio/*">
           <div id="ai-chat-input-wrapper">
@@ -65,6 +95,8 @@ class ChatWidget {
     const toggle = document.getElementById("ai-chat-toggle");
     const widget = document.getElementById("ai-chat-widget");
     const close = document.getElementById("ai-chat-close");
+    const clearData = document.getElementById("clear-chat-button");
+    const topInfoData = document.getElementById("top-info-data");
     const input = document.getElementById("ai-chat-input");
     const send = document.getElementById("ai-chat-send");
     const messages = document.getElementById("ai-chat-messages");
@@ -77,6 +109,11 @@ class ChatWidget {
     const stopRecordingButton = document.getElementById(
       "ai-chat-stop-recording"
     );
+
+    // Add event listener for clearData button
+    clearData.addEventListener("click", () => {
+      sendMessage("/clear");
+    });
 
     // Placeholder handling
     input.addEventListener("focus", () => {
@@ -95,8 +132,8 @@ class ChatWidget {
     input.addEventListener("paste", (e) => {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData("text");
-      // Replace newline characters with <br> tags
       const formattedText = text.replace(/\n/g, "<br>");
+
       document.execCommand("insertHTML", false, formattedText);
     });
 
@@ -112,6 +149,15 @@ class ChatWidget {
       attachmentMenu.classList.toggle("open");
     });
 
+    document.addEventListener("click", (event) => {
+      if (
+        !menuToggle.contains(event.target) &&
+        !attachmentMenu.contains(event.target)
+      ) {
+        attachmentMenu.classList.remove("open");
+      }
+    });
+
     fileOption.addEventListener("click", () => {
       fileInput.click();
       attachmentMenu.classList.remove("open");
@@ -121,7 +167,7 @@ class ChatWidget {
       if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
         // Stop recording
         this.mediaRecorder.stop();
-        recordOption.textContent = "Recording";
+        recordOption.textContent = "Audio";
         stopRecordingButton.style.display = "none";
       } else {
         // Start recording
@@ -149,7 +195,7 @@ class ChatWidget {
               };
               this.fileMode = true;
               modeBadge.textContent = "Chat with file";
-              modeBadge.classList.add("file"); // Add 'file' class
+              modeBadge.classList.add("switch-model-file"); // Add 'file' class
 
               // Display file preview with delete button
               filePreview.innerHTML = `
@@ -171,8 +217,8 @@ class ChatWidget {
               deletePreviewButton.addEventListener("click", () => {
                 this.currentFile = null;
                 this.fileMode = false;
-                modeBadge.textContent = "Chat with Asisstant";
-                modeBadge.classList.remove("file"); // Remove 'file' class
+                modeBadge.textContent = "Chat with Assistant";
+                modeBadge.classList.remove("switch-model-file"); // Remove 'file' class
                 filePreview.innerHTML = "";
                 fileInput.value = "";
               });
@@ -183,7 +229,9 @@ class ChatWidget {
           };
 
           this.mediaRecorder.start();
-          recordOption.textContent = "Stop Recording";
+          recordOption.innerHTML =
+            '<svg style=" vertical-align: bottom; height: 18px;" color="#fff" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" stroke="#fff" aria-labelledby="microphoneIconTitle" xmlns="http://www.w3.org/2000/svg" viewBox="4.6080000000000005 2.736 14.783999999999999 19.488" style="max-height: 500px" width="14.783999999999999" height="19.488"><path d="M17 12a5 5 0 0 1-10 0m5 5v4"/><rect rx="2" y="4" x="10" height="10" width="4"/></svg> Stop Recording';
+
           stopRecordingButton.style.display = "block";
         } catch (error) {
           console.error("Error accessing media devices.", error);
@@ -195,7 +243,8 @@ class ChatWidget {
     stopRecordingButton.addEventListener("click", () => {
       if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
         this.mediaRecorder.stop();
-        recordOption.textContent = "Recording";
+        recordOption.innerHTML =
+          '<svg style=" vertical-align: bottom; height: 18px;" color="#fff" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" stroke="#fff" aria-labelledby="microphoneIconTitle" xmlns="http://www.w3.org/2000/svg" viewBox="4.6080000000000005 2.736 14.783999999999999 19.488" style="max-height: 500px" width="14.783999999999999" height="19.488"><path d="M17 12a5 5 0 0 1-10 0m5 5v4"/><rect rx="2" y="4" x="10" height="10" width="4"/></svg> Recording';
         stopRecordingButton.style.display = "none";
       }
     });
@@ -212,7 +261,7 @@ class ChatWidget {
           };
           this.fileMode = true;
           modeBadge.textContent = "Chat with file";
-          modeBadge.classList.add("file"); // Add 'file' class
+          modeBadge.classList.add("switch-model-file"); // Add 'file' class
 
           // Display file preview with delete button
           filePreview.innerHTML = `
@@ -231,8 +280,8 @@ class ChatWidget {
           deletePreviewButton.addEventListener("click", () => {
             this.currentFile = null;
             this.fileMode = false;
-            modeBadge.textContent = "Chat with Asisstant";
-            modeBadge.classList.remove("file"); // Remove 'file' class
+            modeBadge.textContent = "Chat with Assistant";
+            modeBadge.classList.remove("switch-model-file"); // Remove 'file' class
             filePreview.innerHTML = "";
             fileInput.value = "";
           });
@@ -241,9 +290,7 @@ class ChatWidget {
       }
     });
 
-    const sendMessage = async () => {
-      const messageText = input.textContent.trim();
-
+    const sendMessage = async (messageText = input.textContent.trim()) => {
       if (
         messageText.toLowerCase() === "/clear" ||
         messageText.toLowerCase() === "/reset"
@@ -252,7 +299,8 @@ class ChatWidget {
         this.fileMode = false;
         this.currentFile = null;
         fileInput.value = "";
-        modeBadge.textContent = "Chat with Asisstant";
+        modeBadge.textContent = "Chat with Assistant";
+        modeBadge.classList.remove("switch-model-file");
         filePreview.innerHTML = "";
 
         // Clear input
@@ -265,20 +313,19 @@ class ChatWidget {
             userId: USER_ID,
           };
 
-          // Show loading message
+          // Show AI message text
           const loadingMessage = document.createElement("div");
           loadingMessage.classList.add("ai-chat-message", "ai");
-          loadingMessage.textContent = "...";
           loadingMessage.style.opacity = 0;
           loadingMessage.style.transform = "scale(0)";
           loadingMessage.style.transition =
-            "opacity .1s ease-in-out, transform .3s ease-in-out";
+            "opacity .2s ease-in-out, transform .3s ease-in-out";
           messages.appendChild(loadingMessage);
 
           setTimeout(() => {
             loadingMessage.style.opacity = 1;
             loadingMessage.style.transform = "scale(1)";
-          }, 10);
+          }, 1500);
 
           // Scroll to bottom
           messages.scrollTop = messages.scrollHeight;
@@ -333,32 +380,36 @@ class ChatWidget {
       // Create user message element
       const userMessage = document.createElement("div");
       userMessage.classList.add("ai-chat-message", "user");
+      userMessage.style.opacity = 0;
+      userMessage.style.transition =
+        "opacity 0.2s ease-in-out, transform 0.2s ease-in-out";
+      userMessage.style.transform = "scale(0)";
 
-      // Configure marked to treat newlines as line breaks
       marked.setOptions({
         breaks: true,
       });
 
       userMessage.innerHTML = `
-        <div>
-          ${
-            this.currentFile
-              ? this.getFilePreviewHTML(
-                  this.currentFile.type,
-                  this.currentFile.data
-                )
-              : ""
-          }
-          <p>${marked.parse(messageText)}</p> <!-- Convert Markdown to HTML -->
-        </div>
-      `;
+   <div style="max-width:300px">
+     ${
+       this.currentFile
+         ? this.getFilePreviewHTML(this.currentFile.type, this.currentFile.data)
+         : ""
+     }
+     <p>${marked.parse(messageText)}</p> <!-- Convert Markdown to HTML -->
+   </div>
+ `;
       messages.appendChild(userMessage);
+
+      setTimeout(() => {
+        userMessage.style.opacity = 1;
+        userMessage.style.transform = "scale(1)";
+      }, 100);
 
       input.textContent = "";
 
       messages.scrollTop = messages.scrollHeight;
 
-      // Clear file preview and reset file-related UI elements immediately
       filePreview.innerHTML = "";
 
       try {
@@ -382,8 +433,8 @@ class ChatWidget {
               payload.audio = this.currentFile.data;
               break;
           }
-          // Clear the current file after sending, but maintain Chat with file
           this.currentFile = null;
+          topInfoData.classList.add("active");
         }
 
         // Show loading message
@@ -393,13 +444,13 @@ class ChatWidget {
         loadingMessage.style.opacity = 0;
         loadingMessage.style.transform = "scale(0)";
         loadingMessage.style.transition =
-          "opacity .1s ease-in-out, transform .3s ease-in-out";
+          "opacity .2s ease-in-out, transform .3s ease-in-out";
         messages.appendChild(loadingMessage);
 
         setTimeout(() => {
           loadingMessage.style.opacity = 1;
           loadingMessage.style.transform = "scale(1)";
-        }, 10);
+        }, 500); //loading message dots
 
         // Scroll to bottom
         messages.scrollTop = messages.scrollHeight;
@@ -445,6 +496,15 @@ class ChatWidget {
         errorMessage.textContent = "*Error sending message. Please try again.";
         messages.appendChild(errorMessage);
         messages.scrollTop = messages.scrollHeight;
+
+        // Fade out and remove the error message after 3 seconds
+        setTimeout(() => {
+          errorMessage.style.opacity = 0;
+          errorMessage.style.transition = "opacity 0.5s ease-in-out";
+          setTimeout(() => {
+            messages.removeChild(errorMessage);
+          }, 500);
+        }, 3000);
       }
     };
 
@@ -470,11 +530,11 @@ class ChatWidget {
 
   getFilePreviewHTML(type, data) {
     if (type.startsWith("image/")) {
-      return `<img src="${data}" alt="Attached Image" style="width: 100%; height: auto; margin-top: 10px;">`;
+      return `<img src="${data}" alt="Attached Image" style="width: 100%; height: auto; style="border-radius: 8px;">`;
     } else if (type === "application/pdf") {
-      return `<embed src="${data}" type="application/pdf" width="100%" height="200px" style="margin-top: 10px;">`;
+      return `<embed src="${data}" type="application/pdf" width="100%" height="200px" style="border-radius: 8px;">`;
     } else if (type.startsWith("audio/")) {
-      return `<audio controls style="margin-top: 10px; max-width: 100%;">
+      return `<audio controls style="margin-top: 10px; max-width: 100%;style="border-radius: 8px">
                 <source src="${data}" type="${type}">
                 Your browser does not support the audio element.
               </audio>`;
