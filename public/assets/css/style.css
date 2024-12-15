@@ -163,7 +163,7 @@
 
 .ai-chat-message {
   max-width: 85%;
-  padding: 8px;
+  padding: 12px 9px;
   border-radius: var(--br);
   line-height: 1.4;
   position: relative;
@@ -173,7 +173,7 @@
   background: #291947;
   padding: 15px;
   border-radius: 5px;
-  margin: 5px;
+  margin: 25px 5px;
   overflow: auto;
 }
 
@@ -277,9 +277,10 @@ code {
   border-radius: var(--br);
   cursor: pointer;
   transition: background 0.3s;
-  display: flex;
+  /* display: flex; temporary disabled */ 
   align-items: center;
   position: relative;
+  display: none;
 }
 
 #ai-chat-menu-toggle:hover {

@@ -37,10 +37,9 @@ try {
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const model = genAI.getGenerativeModel({
-  model: process.env.MODEL || "gemini-1.5-flash",
+  model: process.env.MODEL || "gemini-2.0-flash",
   systemInstruction: googleAiSystemInstruction,
 });
-
 
 // File Manager
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
@@ -182,6 +181,9 @@ app.post("/chat", async (req, res) => {
       mimeType = userSession.lastFile.mimeType;
     }
 
+    // Define a hardcoded system instruction for generateContent
+    const generateContentSystemInstruction = "transcribe, describe o responde el audio. Responde conciso como un chat.";
+
     // Build the prompt based on message and file (if available)
     const prompt = [];
     if (fileUri) {
@@ -189,26 +191,26 @@ app.post("/chat", async (req, res) => {
     }
     if (message) {
       prompt.push(message);
+    } else {
+      prompt.push(generateContentSystemInstruction);
     }
 
     // Generate the AI response
-    const result = fileUri
-      ? await model.generateContent(prompt)
-      : await chat.sendMessage(message);
+    const result = await model.generateContent(prompt, { systemInstruction: generateContentSystemInstruction });
     const responseText = await result.response.text();
 
     // Log the interaction in the session structure
     logInteraction({
       sessionId: userSession.sessionId,
       userId,
-      message,
+      message: message || generateContentSystemInstruction,
       response: responseText,
       file: fileUri ? { uri: fileUri, mimeType } : null,
     });
 
     // Update interaction history
     interactionHistory.push({
-      message,
+      message: message || generateContentSystemInstruction,
       response: responseText,
       file: fileUri ? { uri: fileUri, mimeType } : null,
     });
